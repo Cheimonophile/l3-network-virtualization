@@ -1,3 +1,13 @@
 
+
+# Python
+.ipynb_checkpoints
+__pycache__/
+
+
 # MacOS
 .DS_Store
+
+# secrets
+secrets
+.env

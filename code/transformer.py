@@ -7,15 +7,13 @@ from threading import Thread
 
 
 
-def ether_header(src, dst):
+def ether_header(iface):
+  src_ether_addr = netifaces.ifaddresses(iface)[netifaces.AF_LINK][0]['addr']
   src_bytes = [
     int(byte_str,16)
-    for byte_str in src.split(':')
+    for byte_str in src_ether_addr.split(':')
   ]
-  dst_bytes = [
-    int(byte_str,16)
-    for byte_str in dst.split(':')
-  ]
+  dst_bytes = [0xff]*6
   ethertype_bytes = [0x55, 0x55]
   return bytes(dst_bytes + src_bytes + ethertype_bytes)
 
@@ -24,14 +22,7 @@ def ether_header(src, dst):
 
 
 # create the socket server
-def virtualize(plain_if, virtual_if, virtual_ether_addr, id):
-
-
-  # get ethernet addresses
-  src_ether_addr = netifaces.ifaddresses(virtual_if)[netifaces.AF_LINK][0]['addr']
-  dst_ether_addr = virtual_ether_addr
-  print(f"{src_ether_addr=}")
-  print(f"{dst_ether_addr=}")
+def virtualize(plain_if, virtual_if, id):
 
   # setup socket server
   in_sock = socket.socket(
@@ -53,7 +44,7 @@ def virtualize(plain_if, virtual_if, virtual_ether_addr, id):
       print(f"{raw_in_data_list=}")
       raw_out_data_list = [id] + raw_in_data_list
       print(f"{raw_out_data_list=}")
-      payload = ether_header(src_ether_addr, dst_ether_addr) + bytes(raw_out_data_list)
+      payload = ether_header(virtual_if) + bytes(raw_out_data_list)
       print(*[hex(b) for b in list(payload)])
       out_sock.send(payload)
 
@@ -62,16 +53,15 @@ def virtualize(plain_if, virtual_if, virtual_ether_addr, id):
 def main(*argv):
 
   # get sockets
-  plain_if, virtual_if, virtual_ether_addr, id = argv
+  plain_if, virtual_if, id = argv
   id = int(id)
   print(f"{plain_if=}")
   print(f"{virtual_if=}")
-  print(f"{virtual_ether_addr=}")
   print(f"{id=}")
 
   # start virtualizations
   threads = [
-    Thread(target=virtualize, args=[plain_if,virtual_if,virtual_ether_addr,id])
+    Thread(target=virtualize, args=[plain_if,virtual_if,id])
   ]
   for thread in threads:
     thread.start()

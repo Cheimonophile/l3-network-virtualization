@@ -14,3 +14,5 @@
   * Set interface to outgoing traffic
 * https://linuxhint.com/send_receive_udp_packets_linux_cli/
   * Send packets with netcat
+* https://www.ibm.com/docs/en/aix/7.2?topic=routing-configuring-gateway
+  * Configure Gateway

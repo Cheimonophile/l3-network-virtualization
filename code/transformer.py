@@ -50,6 +50,22 @@ def virtualize(plain_if, virtual_if, id):
 
 
 
+
+def devirtualize(virtual_if, plain_if, id):
+  in_sock = socket.socket(
+    socket.AF_PACKET,
+    socket.SOCK_DGRAM,
+    socket.ntohs(3) # socket.ntohs(3)
+  )
+  with in_sock:
+    in_sock.bind((virtual_if,0))
+    while True:
+      raw_in_data_bytes, _ = in_sock.recvfrom(65565)
+      raw_in_data_list = list(raw_in_data_bytes)
+      print(f"{raw_in_data_list=}")
+
+
+
 def main(*argv):
 
   # get sockets
@@ -61,7 +77,8 @@ def main(*argv):
 
   # start virtualizations
   threads = [
-    Thread(target=virtualize, args=[plain_if,virtual_if,id])
+    Thread(target=virtualize, args=[plain_if,virtual_if,id]),
+    Thread(target=devirtualize, args=[virtual_if,plain_if,id])
   ]
   for thread in threads:
     thread.start()

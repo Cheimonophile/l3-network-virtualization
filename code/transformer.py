@@ -7,14 +7,14 @@ from threading import Thread
 
 
 
-def ether_header(iface):
-  src_ether_addr = netifaces.ifaddresses(iface)[netifaces.AF_LINK][0]['addr']
+def ether_header(dst_iface, ethertype=0x5555):
+  src_ether_addr = netifaces.ifaddresses(dst_iface)[netifaces.AF_LINK][0]['addr']
   src_bytes = [
     int(byte_str,16)
     for byte_str in src_ether_addr.split(':')
   ]
   dst_bytes = [0xff]*6
-  ethertype_bytes = [0x55, 0x55]
+  ethertype_bytes = list(ethertype.to_bytes(2,'big'))
   return bytes(dst_bytes + src_bytes + ethertype_bytes)
 
 
@@ -40,6 +40,7 @@ def virtualize(plain_if, virtual_if, id):
     out_sock.bind((virtual_if,0))
     while(True):
       raw_in_data_bytes, _ = in_sock.recvfrom(65565)
+      print('IN')
       raw_in_data_list = list(raw_in_data_bytes)
       print(f"{raw_in_data_list=}")
       raw_out_data_list = [id] + raw_in_data_list
@@ -47,6 +48,7 @@ def virtualize(plain_if, virtual_if, id):
       payload = ether_header(virtual_if) + bytes(raw_out_data_list)
       print(*[hex(b) for b in list(payload)])
       out_sock.send(payload)
+      print()
 
 
 
@@ -57,12 +59,25 @@ def devirtualize(virtual_if, plain_if, id):
     socket.SOCK_DGRAM,
     socket.ntohs(3) # socket.ntohs(3)
   )
-  with in_sock:
+  out_sock = socket.socket(
+    socket.AF_PACKET,
+    socket.SOCK_RAW,
+    socket.ntohs(3)
+  )
+  with in_sock, out_sock:
     in_sock.bind((virtual_if,0))
+    out_sock.bind((plain_if,0))
     while True:
       raw_in_data_bytes, _ = in_sock.recvfrom(65565)
+      print("OUT")
       raw_in_data_list = list(raw_in_data_bytes)
       print(f"{raw_in_data_list=}")
+      raw_out_data_list = raw_in_data_list[1:]
+      print(f"{raw_out_data_list=}")
+      payload = ether_header(plain_if, ethertype=0x0800) + bytes(raw_out_data_list)
+      print(*[hex(b) for b in list(payload)])
+      out_sock.send(payload)
+      print()
 
 
 

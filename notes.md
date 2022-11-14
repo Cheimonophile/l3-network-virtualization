@@ -16,3 +16,5 @@
   * Send packets with netcat
 * https://www.ibm.com/docs/en/aix/7.2?topic=routing-configuring-gateway
   * Configure Gateway
+* https://gist.github.com/rambabusaravanan/a0811f8c9bff440f06ca04d06abdd363
+  * Python Socket Server

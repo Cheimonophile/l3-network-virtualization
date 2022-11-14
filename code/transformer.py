@@ -2,8 +2,13 @@ import socket
 import sys
 import netifaces
 from threading import Thread
+import uuid
+import math
 
 
+SWITCH_ID = list(uuid.uuid4().bytes)
+SWITCH_ID_LEN = len(SWITCH_ID)
+MTU = 700
 
 
 
@@ -22,7 +27,7 @@ def ether_header(dst_iface, ethertype=0x5555):
 
 
 # create the socket server
-def virtualize(plain_if, virtual_if, id):
+def virtualize(plain_if, virtual_if, prot_id):
 
   # setup socket server
   in_sock = socket.socket(
@@ -38,16 +43,22 @@ def virtualize(plain_if, virtual_if, id):
   with in_sock, out_sock:
     in_sock.bind((plain_if,0))
     out_sock.bind((virtual_if,0))
-    while(True):
+    while True:
       raw_in_data_bytes, _ = in_sock.recvfrom(65565)
-      print('IN')
+      print('\nIN')
       raw_in_data_list = list(raw_in_data_bytes)
+      print(f"{len(raw_in_data_list)=}")
       print(f"{raw_in_data_list=}")
-      raw_out_data_list = [id] + raw_in_data_list
-      print(f"{raw_out_data_list=}")
-      payload = ether_header(virtual_if) + bytes(raw_out_data_list)
-      print(*[hex(b) for b in list(payload)])
-      out_sock.send(payload)
+
+      # send the packet
+      data_size = len(raw_in_data_list)
+      for i in range(0,data_size,MTU):
+        packet_id = list(uuid.uuid4().bytes)
+        raw_out_data_list = [prot_id] + SWITCH_ID + packet_id + [int(i/MTU), math.ceil(data_size/MTU)]  + raw_in_data_list[i:i+MTU]
+        print(f"{raw_out_data_list=}")
+        payload = ether_header(virtual_if) + bytes(raw_out_data_list)
+        # print(*[hex(b) for b in list(payload)])
+        out_sock.send(payload)
       print()
 
 
@@ -69,7 +80,7 @@ def devirtualize(virtual_if, plain_if, id):
     out_sock.bind((plain_if,0))
     while True:
       raw_in_data_bytes, _ = in_sock.recvfrom(65565)
-      print("OUT")
+      print("\nOUT")
       raw_in_data_list = list(raw_in_data_bytes)
       print(f"{raw_in_data_list=}")
       raw_out_data_list = raw_in_data_list[1:]
@@ -93,7 +104,7 @@ def main(*argv):
   # start virtualizations
   threads = [
     Thread(target=virtualize, args=[plain_if,virtual_if,id]),
-    Thread(target=devirtualize, args=[virtual_if,plain_if,id])
+    # Thread(target=devirtualize, args=[virtual_if,plain_if,id])
   ]
   for thread in threads:
     thread.start()

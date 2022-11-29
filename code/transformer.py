@@ -18,13 +18,16 @@ NETWORK_IF = CONFIG['network']
 ID = CONFIG['id']
 
 
+def parse_ether_addr(addr):
+  return [
+    int(byte_str,16)
+    for byte_str in addr.split(':')
+  ]
+
 
 def ether_header(dst_iface, ethertype=0x5555):
   src_ether_addr = netifaces.ifaddresses(dst_iface)[netifaces.AF_LINK][0]['addr']
-  src_bytes = [
-    int(byte_str,16)
-    for byte_str in src_ether_addr.split(':')
-  ]
+  src_bytes = parse_ether_addr(src_ether_addr)
   dst_bytes = [0xff]*6
   ethertype_bytes = list(ethertype.to_bytes(2,'big'))
   return bytes(dst_bytes + src_bytes + ethertype_bytes)
@@ -68,10 +71,10 @@ def virtualize():
 
 
 
-def devirtualize(virtual_if, plain_if, id):
+def devirtualize():
   in_sock = socket.socket(
     socket.AF_PACKET,
-    socket.SOCK_DGRAM,
+    socket.SOCK_RAW,
     socket.ntohs(3) # socket.ntohs(3)
   )
   out_sock = socket.socket(
@@ -80,17 +83,16 @@ def devirtualize(virtual_if, plain_if, id):
     socket.ntohs(3)
   )
   with in_sock, out_sock:
-    in_sock.bind((virtual_if,0))
-    out_sock.bind((plain_if,0))
+    in_sock.bind((NETWORK_IF,0))
+    out_sock.bind((HOST_IF,0))
     while True:
       raw_in_data_bytes, _ = in_sock.recvfrom(65565)
       print("\nOUT")
       raw_in_data_list = list(raw_in_data_bytes)
       print(f"{raw_in_data_list=}")
-      raw_out_data_list = raw_in_data_list[1:]
+      raw_out_data_list = raw_in_data_list[14:]
       print(f"{raw_out_data_list=}")
-      payload = ether_header(plain_if, ethertype=0x0800) + bytes(raw_out_data_list)
-      print(*[hex(b) for b in list(payload)])
+      payload = ether_header(HOST_IF, ethertype=0x0800) + bytes(raw_out_data_list)
       out_sock.send(payload)
       print()
 
@@ -101,7 +103,7 @@ def main():
   # start virtualizations
   threads = [
     Thread(target=virtualize),
-    # Thread(target=devirtualize, args=[virtual_if,plain_if,id])
+    Thread(target=devirtualize)
   ]
   for thread in threads:
     thread.start()

@@ -11,11 +11,16 @@ import json
 
 # get interfaces
 CONFIG = json.loads(sys.stdin.read())
-for k, v in CONFIG.items():
-  print(f"{k}: {v}")
 HOST_IF = CONFIG['host']
+HOST_MACS = {x['addr'] for x in netifaces.ifaddresses(HOST_IF)[netifaces.AF_LINK]}
 NETWORK_IF = CONFIG['network']
+NETWORK_MACS = {x['addr'] for x in netifaces.ifaddresses(NETWORK_IF)[netifaces.AF_LINK]}
 ID = CONFIG['id']
+print(f"{HOST_IF=}")
+print(f"{HOST_MACS=}")
+print(f"{NETWORK_IF=}")
+print(f"{NETWORK_MACS=}")
+print(f"{ID=}")
 
 
 def parse_ether_addr(addr):
@@ -24,6 +29,11 @@ def parse_ether_addr(addr):
     for byte_str in addr.split(':')
   ]
 
+def serialize_ether_addr(addr):
+  return ':'.join(
+    hex(b)[2:].rjust(2,'0')
+    for b in addr
+  )
 
 def ether_header(dst_iface, ethertype=0x5555):
   src_ether_addr = netifaces.ifaddresses(dst_iface)[netifaces.AF_LINK][0]['addr']
@@ -86,8 +96,11 @@ def devirtualize():
     in_sock.bind((NETWORK_IF,0))
     out_sock.bind((HOST_IF,0))
     while True:
+      print()
       raw_in_data_bytes, _ = in_sock.recvfrom(65565)
-      print("\nOUT")
+      src_ether_addr = serialize_ether_addr(raw_in_data_bytes[6:12])
+      if src_ether_addr in NETWORK_MACS: continue # skip duplicated traffic
+      print("OUT")
       raw_in_data_list = list(raw_in_data_bytes)
       print(f"{raw_in_data_list=}")
       raw_out_data_list = raw_in_data_list[14:]

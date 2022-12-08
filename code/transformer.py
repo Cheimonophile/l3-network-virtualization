@@ -67,10 +67,12 @@ def virtualize():
     while True:
       raw_in_data_bytes, _ = in_sock.recvfrom(65565)
       in_protocol = int.from_bytes(raw_in_data_bytes[12:14],'big')
+      raw_in_data_list = list(raw_in_data_bytes)
+      src_ether_addr = serialize_ether_addr(raw_in_data_list[6:12])
       if in_protocol not in PROTOCOLS: continue # filter for accepted protocols
+      if src_ether_addr in HOST_MACS: continue # filter outgoing traffic
       print()
       print(f'HOST > NETWORK ({PROTOCOLS[in_protocol]})')
-      raw_in_data_list = list(raw_in_data_bytes)
       print(f"{len(raw_in_data_list)=}")
       print(f"{raw_in_data_list=}")
 
@@ -109,7 +111,7 @@ def devirtualize():
       print(f"{raw_in_data_list=}")
       raw_out_data_list = raw_in_data_list[12:]
       print(f"{raw_out_data_list=}")
-      payload = ether_header(HOST_IF, ethertype=0x0800) + bytes(raw_out_data_list)
+      payload = ether_header(HOST_IF) + bytes(raw_out_data_list)
       out_sock.send(payload)
       print()
 
